@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <fragment
+        android:id="@+id/map"
+        android:name="com.google.android.gms.maps.SupportMapFragment"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        tools:context=".MapsActivity" />
+
+    <TextView
+        android:id="@+id/box"
+        android:layout_width="match_parent"
+        android:layout_height="70dp"
+        android:textColor="#fff"
+        android:textAlignment="center"
+        android:background="#852196F3"
+        android:layout_alignParentBottom="true"
+        android:textSize="16sp"
+        android:text="@string/you_don_t_have_any_mark_please_press_over_the_button"
+        />
+
+    <Button
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:text="@string/plus"
+        android:background="@drawable/button"
+        android:layout_alignParentEnd="true"
+        android:layout_marginEnd="30dp"
+        android:layout_marginTop="30dp"
+        android:textSize="30sp"
+        android:textColor="#fff"
+        android:id="@+id/add"
+        />
+</RelativeLayout>
+
