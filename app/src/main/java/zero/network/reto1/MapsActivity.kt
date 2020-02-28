@@ -11,14 +11,16 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
 import android.text.InputType
-import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import com.google.android.gms.maps.*
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.GoogleMap
+import com.google.android.gms.maps.OnMapReadyCallback
+import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
@@ -26,13 +28,12 @@ import com.google.android.gms.maps.model.MarkerOptions
 import kotlinx.android.synthetic.main.activity_maps.*
 import java.util.*
 
-
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener {
 
     private lateinit var mMap: GoogleMap
 
 
-    private lateinit var you: Marker
+    private lateinit var user: Marker
     private var firstTime = true // in the firs time in the app, the zoom is fixed
     private var isAddMode = false // when is true, the user can add new markers
 
@@ -57,10 +58,11 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener {
         // Subscribe to the location update
         subscribeLocation()
         mapFragment.getMapAsync(this)
-        box = findViewById(R.id.box)
+        box = textBox
         addButton.setOnClickListener {
             isAddMode = true
-            Toast.makeText(this, "Creation Mode ON\nPress any site in the map", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Creation Mode ON\nPress any site in the map", Toast.LENGTH_LONG)
+                .show()
         }
 
     }
@@ -68,70 +70,55 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener {
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
 
-        val bitmap =
-            resources.getDrawable(R.drawable.you_are_here, null) as BitmapDrawable
-        val b = bitmap.bitmap
-        val smallMarker = Bitmap.createScaledBitmap(b, 100, 100, false)
+        val bitmap = (resources.getDrawable(R.drawable.you_are_here, null) as BitmapDrawable).bitmap
+        val smallMarker = Bitmap.createScaledBitmap(bitmap, 100, 100, false)
 
-        you = mMap.addMarker(
+        user = mMap.addMarker(
             MarkerOptions()
                 .position(LatLng(.0, .0))
                 .title("You")
                 .icon(BitmapDescriptorFactory.fromBitmap(smallMarker))
-
         )
         mMap.setOnMapClickListener {
             if (isAddMode) {
                 isAddMode = false
-
-                AlertDialog.Builder(this).apply {
-                    setTitle("Insert the marker name")
-                    val input = EditText(this@MapsActivity).apply {
-                        inputType = InputType.TYPE_CLASS_TEXT
-                        width = (width.toDouble() * .8).toInt()
-                    }
-
-                    setView(input)
-                    dialogButtons(input, it)
-                    show()
-                }
+                val input = EditText(this).apply { inputType = InputType.TYPE_CLASS_TEXT }
+                // Create Dialog to add a new marker
+                newMarkerDialog(input, it).show()
             }
         }
     }
 
-    private fun AlertDialog.Builder.dialogButtons(
-        input: EditText,
-        it: LatLng
-    ) {
-        setPositiveButton(
-            "OK"
-        ) { _, _ ->
-            val tittle = input.text.toString()
-            val distance = floatArrayOf(0f)
-            Location.distanceBetween(
-                you.position.latitude,
-                you.position.longitude,
-                it.latitude,
-                it.longitude,
-                distance
-            )
-            markers += mMap.addMarker(
-                MarkerOptions()
-                    .position(it)
-                    .title(if (tittle.isEmpty()) "empty" else tittle)
-            ).apply {
-                snippet = "Distance to te location is ${distance[0]} mts"
-            }
-            Toast.makeText(this@MapsActivity, "Creation Mode Off", Toast.LENGTH_LONG).show()
-            updateNear(you.position.latitude, you.position.longitude)
+    private fun newMarkerDialog(input: EditText, position: LatLng) = AlertDialog.Builder(this)
+        .setTitle("Insert the marker name")
+        .setView(input)
+        .setPositiveButton("OK") { _, _ -> createNewMarker(position, input) }
+        .setNegativeButton("Cancel") { dialog, _ -> dialog.cancel() }
+        .setOnDismissListener { showToast("Creation Mode Off", Toast.LENGTH_LONG) }
+
+
+
+    private fun createNewMarker(position: LatLng, input: EditText) {
+        markers += mMap.addMarker(
+            MarkerOptions()
+                .position(position)
+                .title(input.text.toString().ifEmpty { "empty" })
+        ).apply {
+            snippet = "Distance to te location is ${distanceBetween(user.position, position)} mts"
         }
-        setNegativeButton(
-            "Cancel"
-        ) { dialog, _ ->
-            dialog.cancel()
-            Toast.makeText(this@MapsActivity, "Creation Mode Off", Toast.LENGTH_LONG).show()
-        }
+        updateNear(user.position)
     }
+
+
+    private fun distanceBetween(pointOne: LatLng, pointTwo: LatLng) = floatArrayOf(0f).apply {
+        Location.distanceBetween(
+            pointOne.latitude,
+            pointOne.longitude,
+            pointTwo.latitude,
+            pointTwo.longitude,
+            this
+        )
+    }[0]
 
     private fun subscribeLocation() {
         try {
@@ -149,8 +136,20 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener {
         ActivityCompat.requestPermissions(
             this,
             arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-            42
+            REQUEST_CODE
         )
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_CODE && grantResults[0] == PackageManager.PERMISSION_GRANTED)
+            subscribeLocation()
+        else if (requestCode == REQUEST_CODE && grantResults[0] != PackageManager.PERMISSION_GRANTED)
+            finish()
     }
 
     private fun checkPermissions() = ActivityCompat.checkSelfPermission(
@@ -158,65 +157,55 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener {
         Manifest.permission.ACCESS_FINE_LOCATION
     ) == PackageManager.PERMISSION_GRANTED
 
-    override fun onLocationChanged(location: Location) {
-        val latitude = location.latitude
-        val longitude = location.longitude
-        // Debug for small position changes
-        Toast.makeText(this, "Upadating...", Toast.LENGTH_SHORT).show()
-        if (latitude != you.position.latitude || longitude != you.position.longitude) {
-            you.position = LatLng(latitude, longitude)
+    override fun onLocationChanged(location: Location) =
+        LatLng(location.latitude, location.longitude).scoped {
+            // Debug for small position changes
+            showToast("Updating...", Toast.LENGTH_SHORT)
+            // update user position
+            user.position = LatLng(latitude, longitude)
             // Put the near direction in the user marker
-            you.snippet = Geocoder(this, Locale.getDefault())
-                .getFromLocation(latitude, longitude, 1)[0]
-                .getAddressLine(0)
+            user.snippet = getDirection()
             // Find the near marker to the new position and put it in the box
-            updateNear(latitude, longitude)
-            centerCamera(latitude, longitude)
+            updateNear(this)
+            centerCamera(this)
         }
-    }
 
-    private fun centerCamera(latitude: Double, longitude: Double) {
-        if (firstTime) {
+    private fun LatLng.getDirection(): String = Geocoder(this@MapsActivity, Locale.getDefault())
+        .getFromLocation(latitude, longitude, 1)[0]
+        .getAddressLine(0) ?: "Where are you?"
+
+    private fun centerCamera(position: LatLng) = when {
+        firstTime -> {
             firstTime = false
-            mMap.animateCamera(
-                CameraUpdateFactory.newLatLngZoom(
-                    LatLng(latitude, longitude),
-                    15.0f // fix zoom
-                )
-            )
-        } else {
-            mMap.moveCamera(CameraUpdateFactory.newLatLng(LatLng(latitude, longitude)))
+            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(position, 15.0f)) // fix zoom
+        }
+        else -> {
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(position))
         }
     }
 
-    private fun updateNear(latitude: Double, longitude: Double) {
-        val distance = floatArrayOf(0f)
-        var minStr = "You don't have any mark\nplease press over the + button"
-        var min = Float.MAX_VALUE
-        markers.forEach {
-            Location.distanceBetween(
-                latitude,
-                longitude,
-                it.position.latitude,
-                it.position.longitude,
-                distance
-            )
-            it.snippet = "Distance to te location is ${distance[0]} mts"
-            if (distance[0] < min) {
-                min = distance[0]
-                minStr =
-                    if (min < 30) "You are in \n${it.title}" else "You are near to \n${it.title}"
-            }
+    private fun updateNear(position: LatLng) {
+        if (markers.isNotEmpty()) {
+            val nearest = markers.minBy {
+                it.snippet = "Distance to te location is ${distanceBetween(user.position, it.position)} mts"
+                distanceBetween(position, it.position)
+            } ?: markers[0]
+            box.text = if (distanceBetween(position, nearest.position) < 100)
+                "You are in \n${nearest.title}" else "You are near to \n${nearest.title}"
         }
-        box.text = minStr
     }
 
-    override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {
-    }
+    private inline fun <T> T.scoped(scope: T.() -> Unit): Unit = scope()
 
-    override fun onProviderEnabled(provider: String?) {
-    }
+    private fun showToast(text: String, duration: Int) = Toast.makeText(this, text, duration).show()
 
-    override fun onProviderDisabled(provider: String?) {
+    override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+
+    override fun onProviderEnabled(provider: String?) {}
+
+    override fun onProviderDisabled(provider: String?) {}
+
+    companion object {
+        private const val REQUEST_CODE = 42
     }
 }

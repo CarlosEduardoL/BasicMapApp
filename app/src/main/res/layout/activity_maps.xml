@@ -14,11 +14,11 @@
         tools:context=".MapsActivity" />
 
     <TextView
-        android:id="@+id/box"
+        android:id="@+id/textBox"
         android:layout_width="match_parent"
         android:layout_height="70dp"
         android:textColor="#fff"
-        android:textAlignment="center"
+        android:gravity="center"
         android:background="#852196F3"
         android:layout_alignParentBottom="true"
         android:textSize="16sp"
