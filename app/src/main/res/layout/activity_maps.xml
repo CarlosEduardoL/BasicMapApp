@@ -35,7 +35,7 @@
         android:layout_marginTop="30dp"
         android:textSize="30sp"
         android:textColor="#fff"
-        android:id="@+id/add"
+        android:id="@+id/addButton"
         />
 </RelativeLayout>
 
