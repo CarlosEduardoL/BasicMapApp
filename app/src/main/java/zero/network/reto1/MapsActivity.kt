@@ -71,14 +71,14 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener {
         mMap = googleMap
 
         val bitmap = (resources.getDrawable(R.drawable.you_are_here, null) as BitmapDrawable).bitmap
-        val smallMarker = Bitmap.createScaledBitmap(bitmap, 100, 100, false)
+        val smallMarker = Bitmap.createScaledBitmap(bitmap, 125, 125, false)
 
-        user = mMap.addMarker(
-            MarkerOptions()
-                .position(LatLng(.0, .0))
-                .title("You")
-                .icon(BitmapDescriptorFactory.fromBitmap(smallMarker))
-        )
+        user = MarkerOptions()
+            .position(LatLng(3.4, -76.5))
+            .title("You")
+            .icon(BitmapDescriptorFactory.fromBitmap(smallMarker))
+            .let { mMap.addMarker(it) }
+
         mMap.setOnMapClickListener {
             if (isAddMode) {
                 isAddMode = false
@@ -87,6 +87,8 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener {
                 newMarkerDialog(input, it).show()
             }
         }
+
+        mMap.moveCamera(CameraUpdateFactory.newLatLng(LatLng(3.4, -76.5)))
     }
 
     private fun newMarkerDialog(input: EditText, position: LatLng) = AlertDialog.Builder(this)
@@ -95,8 +97,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener {
         .setPositiveButton("OK") { _, _ -> createNewMarker(position, input) }
         .setNegativeButton("Cancel") { dialog, _ -> dialog.cancel() }
         .setOnDismissListener { showToast("Creation Mode Off", Toast.LENGTH_LONG) }
-
-
 
     private fun createNewMarker(position: LatLng, input: EditText) {
         markers += mMap.addMarker(
@@ -124,12 +124,10 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener {
         try {
             locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
             if (checkPermissions())
-                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 500, 2f, this)
+                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 1f, this)
             else
                 requestPermission()
-        } catch (e: SecurityException) {
-            e.printStackTrace()
-        }
+        } catch (e: SecurityException) { finish() }
     }
 
     private fun requestPermission() {
@@ -140,11 +138,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener {
         )
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQUEST_CODE && grantResults[0] == PackageManager.PERMISSION_GRANTED)
             subscribeLocation()
@@ -152,10 +146,8 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener {
             finish()
     }
 
-    private fun checkPermissions() = ActivityCompat.checkSelfPermission(
-        this,
-        Manifest.permission.ACCESS_FINE_LOCATION
-    ) == PackageManager.PERMISSION_GRANTED
+    private fun checkPermissions() =
+        ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
     override fun onLocationChanged(location: Location) =
         LatLng(location.latitude, location.longitude).scoped {
@@ -177,7 +169,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener {
     private fun centerCamera(position: LatLng) = when {
         firstTime -> {
             firstTime = false
-            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(position, 15.0f)) // fix zoom
+            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(position, 16.0f)) // fix zoom
         }
         else -> {
             mMap.moveCamera(CameraUpdateFactory.newLatLng(position))
