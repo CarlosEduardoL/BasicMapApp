@@ -30,12 +30,26 @@ import com.google.android.gms.maps.model.MarkerOptions
 import kotlinx.android.synthetic.main.activity_maps.*
 import java.util.*
 
+/**
+ * @author CarlosEduardoL
+ */
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocListener {
 
+    /**
+     * Constants
+     */
+    companion object {
+        private const val REQUEST_CODE = 42 // Random code
+        private const val INITIAL_ZOOM = 16f
+        private const val MINIMUM_IN_DISTANCE = 100 // in mts
+        private const val ICON_SIZE = 125 // in pxs
+        private const val MIN_TIME_UPDATE = 1000L // in milliseconds
+        private const val MIN_DISTANCE_UPDATE = 1f
+    }
+
     private lateinit var mMap: GoogleMap
-
-
     private lateinit var user: Marker
+
     private var isAddMode = false // when is true, the user can add new markers
 
     /**
@@ -48,8 +62,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocListener {
      */
     private val markers = mutableListOf<Marker>()
 
-    private lateinit var locationManager: LocationManager
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_maps)
@@ -60,7 +72,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocListener {
             arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
             REQUEST_CODE
         )
-
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -70,52 +81,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocListener {
             showToast("This App require the location permission to work", LENGTH_LONG)
             finish() // else finish the app
         }
-    }
-
-    @SuppressLint("MissingPermission")
-    override fun onMapReady(googleMap: GoogleMap) {
-        mMap = googleMap
-
-        locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        locationManager.requestLocationUpdates(GPS_PROVIDER, 1000, 1f, this)
-
-        val bitmap = (resources.getDrawable(R.drawable.you_are_here, null) as BitmapDrawable).bitmap
-        val smallMarker = createScaledBitmap(bitmap, ICON_SIZE, ICON_SIZE, false)
-
-        val lastPosition =
-            locationManager.getLastKnownLocation(GPS_PROVIDER)?.latlng ?: LatLng(3.4, -76.5)
-
-        user = MarkerOptions()
-            .position(lastPosition)
-            .title("You")
-            .icon(BitmapDescriptorFactory.fromBitmap(smallMarker))
-            .let { mMap.addMarker(it) }
-
-        mMap.setOnMapClickListener {
-            if (isAddMode) {
-                isAddMode = false
-                newMarkerDialog(EditText(this), it).show() // Create Dialog to add a new marker
-            }
-        }
-
-        mMap.animateCamera(newLatLngZoom(lastPosition, INITIAL_ZOOM))
-    }
-
-    private fun newMarkerDialog(input: EditText, position: LatLng) = AlertDialog.Builder(this)
-        .setTitle("Insert the marker name")
-        .setView(input)
-        .setPositiveButton("OK") { _, _ -> createNewMarker(position, input.text.toString()) }
-        .setNegativeButton("Cancel") { dialog, _ -> dialog.cancel() }
-        .setOnDismissListener { showToast("Creation Mode Off", LENGTH_LONG) }
-
-
-    private fun createNewMarker(position: LatLng, input: String) {
-        markers += MarkerOptions()
-            .position(position)
-            .title(input.ifEmpty { "empty" })
-            .let { mMap.addMarker(it) }
-            .apply { snippet = "Distance to te location is ${user.position disTo position} mts" }
-        updateNear()
     }
 
     private fun initMap() {
@@ -129,6 +94,52 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocListener {
             isAddMode = true
             showToast("Creation Mode ON\nPress any site in the map", LENGTH_LONG)
         }
+    }
+
+    @SuppressLint("MissingPermission")
+    override fun onMapReady(googleMap: GoogleMap) {
+        mMap = googleMap
+
+        val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        locationManager.requestLocationUpdates(GPS_PROVIDER, MIN_TIME_UPDATE, MIN_DISTANCE_UPDATE, this)
+
+        val bitmap = (resources.getDrawable(R.drawable.you_are_here, null) as BitmapDrawable).bitmap
+        val smallMarker = createScaledBitmap(bitmap, ICON_SIZE, ICON_SIZE, false)
+
+        val lastPosition =
+            locationManager.getLastKnownLocation(GPS_PROVIDER)?.latlng ?: LatLng(3.4, -76.5)
+
+        user = MarkerOptions()
+            .position(lastPosition)
+            .title("You")
+            .icon(BitmapDescriptorFactory.fromBitmap(smallMarker))
+            .putOn(mMap)
+
+        mMap.setOnMapClickListener {
+            if (isAddMode) {
+                isAddMode = false
+                newMarkerDialog(EditText(this), it) // Create Dialog to add a new marker
+            }
+        }
+
+        mMap.animateCamera(newLatLngZoom(lastPosition, INITIAL_ZOOM))
+    }
+
+    private fun newMarkerDialog(input: EditText, position: LatLng) = AlertDialog.Builder(this)
+        .setTitle("Insert the marker name")
+        .setView(input)
+        .setPositiveButton("OK") { _, _ -> createNewMarker(position, input.text.toString()) }
+        .setNegativeButton("Cancel") { dialog, _ -> dialog.cancel() }
+        .setOnDismissListener { showToast("Creation Mode Off", LENGTH_LONG) }
+        .show()
+
+    private fun createNewMarker(position: LatLng, input: String) {
+        markers += MarkerOptions()
+            .position(position)
+            .title(input.ifEmpty { "empty" })
+            .putOn(mMap)
+            .apply { snippet = "Distance to the location is ${user.position disTo position} mts" }
+        updateNear()
     }
 
     override fun onLocationChanged(location: Location) = location.latlng.scoped {
@@ -147,7 +158,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocListener {
         if (markers.isNotEmpty()) {
             val nearest = markers.minBy {
                 (user.position disTo it.position).apply {
-                    it.snippet = "Distance to te location is $this mts"
+                    it.snippet = "Distance to the location is $this mts"
                 }
             } ?: markers.first()
             box.text = when {
@@ -155,13 +166,5 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocListener {
                 else -> "You are near to \n${nearest.title}"
             }
         }
-    }
-
-
-    companion object {
-        private const val REQUEST_CODE = 42 // Random code
-        private const val INITIAL_ZOOM = 16f
-        private const val MINIMUM_IN_DISTANCE = 100 // in mts
-        private const val ICON_SIZE = 125 // in pxs
     }
 }
